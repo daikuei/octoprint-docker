@@ -3,19 +3,23 @@ cachedir=.cache
 octoprint_ref?= $(shell ./scripts/version.sh "OctoPrint/OctoPrint")
 platforms?="linux/arm/v7,linux/arm64,linux/amd64"
 
-.PHONY: test
+#.PHONY: test
+.PHONY: build-arm64 export-arm64
+
+arm64_image ?= daikuei/octoprint:1.11.8-arm64
+arm64_archive ?= octoprint-1.11.8-arm64.tar
 
 build:
-	docker-compose -f test/docker-compose.yml build
+	docker compose -f test/docker-compose.yml build
 
 down:
-	docker-compose -f test/docker-compose.yml down
+	docker compose -f test/docker-compose.yml down
 
 up:
-	docker-compose -f test/docker-compose.yml up
+	docker compose -f test/docker-compose.yml up
 
 clean:
-	docker-compose -f test/docker-compose.yml down --rmi local -v
+	docker compose -f test/docker-compose.yml down --rmi local -v
 	rm -rf ${builddir}
 
 setup-multi-arch:
@@ -40,7 +44,7 @@ e2e:
 		--secret id=password,src=./test/password.txt \
 		--file ./test/Dockerfile \
 		--progress tty -t octoprint/octoprint:e2e ./test
-	docker-compose -f test/e2e-compose.yml up	
+	docker compose -f test/e2e-compose.yml up	
 
 build-minimal:
 	docker build -t octoprint/octoprint:minimal -f minimal/Dockerfile --build-arg octoprint_ref=${octorprint_ref} ./minimal
@@ -50,3 +54,16 @@ test-minimal:
 
 clean-minimal:	
 	docker rm octoprint_minimal
+
+build-arm64:
+	docker buildx build \
+		--builder octoprint-builder \
+		--platform linux/arm64 \
+		--build-arg octoprint_ref=1.11.8 \
+		--tag $(arm64_image) \
+		--progress=plain \
+		--load \
+		.
+
+export-arm64: build-arm64
+	docker save -o $(arm64_archive) $(arm64_image)
